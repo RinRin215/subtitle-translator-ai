@@ -17,10 +17,7 @@ const App = () => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [processingStatus, setProcessingStatus] = useState(''); 
   
-  const [youtubeLink, setYoutubeLink] = useState('');
-  const [showYoutubeInput, setShowYoutubeInput] = useState(false);
-  
-  // MỚI: State cho API Key của người dùng
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [userApiKey, setUserApiKey] = useState('');
   
   const [targetLanguage, setTargetLanguage] = useState('Tiếng Việt');
@@ -123,40 +120,6 @@ const App = () => {
   const handleFileChange = (event) => processFiles(event.target.files);
   const triggerFileInput = () => fileInputRef.current.click();
 
-  const handleAddYoutubeLink = async () => {
-    if (!youtubeLink.trim()) return;
-    const linksArray = youtubeLink.split('\n').map(link => link.trim()).filter(Boolean);
-    
-    setIsTranslating(true); 
-    setProcessingStatus('⏳ ĐANG KÉO ÂM THANH TỪ YOUTUBE...');
-
-    try {
-      for (const link of linksArray) {
-        let videoId = "Video";
-        if (link.includes('v=')) videoId = link.split('v=')[1].substring(0, 11);
-        else if (link.includes('youtu.be/')) videoId = link.split('youtu.be/')[1].substring(0, 11);
-
-        // Đọc link Backend từ biến môi trường, nếu không có thì dùng tạm localhost
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(link)}`);
-        if (!response.ok) throw new Error("Lỗi tải YouTube");
-
-        const blob = await response.blob();
-        const youtubeFile = new File([blob], `[YouTube] ${videoId}.mp4`, { type: 'video/mp4' });
-
-        await processFiles([youtubeFile]);
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Không thể tải YouTube. Hãy chắc chắn rằng bạn đã chạy Trạm Backend Node.js (port 3000)!");
-    } finally {
-      setIsTranslating(false);
-      setProcessingStatus('');
-      setYoutubeLink('');
-      setShowYoutubeInput(false); 
-    }
-  };
-
   const handleDeleteFile = (e, id, isHistory) => {
     e.stopPropagation(); 
     let newProcessing = filesData;
@@ -175,7 +138,6 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
 
   // --- LÕI GỌI AI & FFMPEG ---
   const processSingleFile = async (fileToProcess) => {
-    // SỬ DỤNG API KEY CỦA NGƯỜI DÙNG THAY VÌ .ENV
     if (!userApiKey.trim()) {
       throw new Error("MISSING_API_KEY");
     }
@@ -187,7 +149,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
     if (currentData.isMedia && currentData.subtitles.length === 0) {
       if (!isFfmpegLoaded) { throw new Error("Cỗ máy FFmpeg chưa sẵn sàng. Vui lòng thử lại!"); }
 
-      setProcessingStatus(`⏳ ĐANG TRÍCH XUẤT & NÉN ÂM THANH...`);
+      setProcessingStatus(`⏳ ĐANG TRÍCH XUẤT & NÉN...`);
       const ffmpeg = ffmpegRef.current;
       const ext = currentData.name.slice((Math.max(0, currentData.name.lastIndexOf(".")) || Infinity)).toLowerCase() || '.mp4';
       
@@ -208,7 +170,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
           reader.readAsDataURL(mp3Blob);
         });
 
-        setProcessingStatus(`⏳ ĐANG NGHE & TẠO PHỤ ĐỀ GỐC...`);
+        setProcessingStatus(`⏳ ĐANG NGHE & TẠO PHỤ ĐỀ...`);
         const mediaPart = { inlineData: { data: base64Audio, mimeType: "audio/mp3" } };
         const transcribePrompt = `Hãy nghe đoạn âm thanh/video này và tạo một file phụ đề ngôn ngữ gốc có độ chính xác cao nhất dưới định dạng SRT. KHÔNG bình luận, CHỈ trả về đoạn code SRT chuẩn.`;
         
@@ -224,7 +186,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
     }
 
     if (currentData.subtitles.length > 0) {
-      setProcessingStatus(`⏳ ĐANG DỊCH SANG ${targetLanguage.toUpperCase()}...`);
+      setProcessingStatus(`⏳ ĐANG DỊCH...`);
       const dataToTranslate = currentData.subtitles.map(sub => ({ id: sub.id, text: sub.text }));
       const translatePrompt = `
         Bạn là chuyên gia dịch thuật phụ đề. Hãy dịch các câu sau sang ${targetLanguage}.
@@ -258,7 +220,6 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
   const handleTranslateCurrent = async () => {
     if (!activeFile) return;
     
-    // Kiểm tra API Key ngay từ vòng gửi xe
     if (!userApiKey.trim()) {
       alert("Vui lòng nhập API Key của bạn ở khung bên phải trước khi dịch nhé!");
       return;
@@ -274,7 +235,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
       if (error.message === "MISSING_API_KEY") {
         alert("Vui lòng nhập API Key của bạn ở khung bên phải!");
       } else {
-        alert(`Lỗi kết nối: Key API không hợp lệ hoặc bị quá tải.`);
+        alert(`Lỗi kết nối: Key API không hợp lệ hoặc file quá nặng.`);
       }
     } finally {
       setIsTranslating(false);
@@ -299,7 +260,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
       if (isAlreadyTranslated) continue;
       
       setActiveProcessingId(currentProcessingFile.id);
-      setProcessingStatus('⏳ ĐANG CHUẨN BỊ XỬ LÝ FILE TIẾP THEO...');
+      setProcessingStatus('⏳ ĐANG CHUẨN BỊ...');
       await new Promise(r => setTimeout(r, 2000));
 
       try {
@@ -307,8 +268,6 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
         setFilesData(prev => prev.map(f => f.id === currentProcessingFile.id ? finishedFile : f));
         setHistoryData(prev => [{ ...finishedFile, id: `hist_${Date.now()}_${Math.random()}`, name: getTranslatedFileName(finishedFile.name) }, ...prev]);
       } catch (error) {
-        console.error(`Lỗi tại file ${currentProcessingFile.name}:`, error);
-        
         if (error.message === "MISSING_API_KEY") {
           alert("Vui lòng nhập API Key của bạn!");
           break;
@@ -319,7 +278,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
           subtitles: [{ 
             id: "1", start: "00:00:00,000", end: "00:00:05,000", 
             text: "LỖI XỬ LÝ", 
-            translatedText: `❌ Có lỗi xảy ra với file này.\nChi tiết: API Key hết hạn mức hoặc lỗi kết nối mạng.\nApp tự động bỏ qua file này.` 
+            translatedText: `❌ Lỗi: API Key hết hạn hoặc mạng yếu.\nApp đã tự động bỏ qua file này.` 
           }]
         };
         
@@ -369,7 +328,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
   };
 
   return (
-    <div className="flex h-screen bg-[#121212] text-gray-300 font-sans">
+    <div className="flex h-screen bg-[#121212] text-gray-300 font-sans relative">
       <input type="file" accept=".srt,.vtt,.txt,.mp3,.mp4,.wav,.m4a" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" />
 
       {/* 1. LEFT SIDEBAR */}
@@ -384,7 +343,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
             </button>
           </div>
           
-          <div className="p-4 flex-1 space-y-2 overflow-y-auto">
+          <div className="p-4 flex-1 space-y-2 overflow-y-auto custom-scrollbar">
             {currentList.length > 0 && (
                <div className="flex justify-between items-center mb-2 px-1">
                  <span className="text-[10px] text-gray-500 uppercase">{activeTab === 'processing' ? 'Danh sách gốc' : 'Bản dịch đã lưu'}</span>
@@ -401,7 +360,6 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
               if (isError) icon = '⚠️';
               else if (isTranslated) icon = '✅';
               else if (file.isMedia) icon = '🎞️';
-              else if (file.name.includes('[YouTube]')) icon = '▶';
               
               return (
                 <div 
@@ -419,17 +377,9 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
             })}
 
             {activeTab === 'processing' && (
-              <>
-                <button onClick={triggerFileInput} className="w-full mt-4 py-2 text-xs text-gray-400 border border-dashed border-gray-700 rounded hover:text-white transition-colors">+ Thêm file khác</button>
-                {showYoutubeInput ? (
-                  <div className="mt-2 flex bg-[#242424] border border-gray-700 rounded overflow-hidden">
-                    <textarea placeholder="Dán link..." className="flex-1 bg-transparent p-2 text-xs focus:outline-none resize-none h-14" value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} autoFocus />
-                    <button onClick={handleAddYoutubeLink} disabled={isTranslating} className="px-3 text-xs bg-[#2a2a2a] border-l border-gray-700 hover:bg-orange-500">THÊM</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setShowYoutubeInput(true)} className="w-full mt-2 py-2 text-xs text-gray-400 border border-dashed border-gray-700 rounded hover:text-white transition-colors">+ Thêm link YouTube</button>
-                )}
-              </>
+              <button onClick={triggerFileInput} className="w-full mt-4 py-2 text-xs text-gray-400 border border-dashed border-gray-700 rounded hover:text-white transition-colors">
+                + Thêm file khác
+              </button>
             )}
 
             {activeTab === 'history' && currentList.length === 0 && (
@@ -490,22 +440,68 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
           </div>
         </div>
 
-        <div className="flex-1 p-6 overflow-hidden">
+        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
           {!hasUploaded ? (
-            <div className="h-full flex flex-col items-center justify-center space-y-12">
+            <div className="flex flex-col items-center justify-start pt-10 space-y-12 max-w-5xl mx-auto min-h-full">
+              
+              {/* KHU VỰC KÉO THẢ FILE */}
               <div onDragOver={(e)=>{e.preventDefault(); setIsDragging(true)}} onDragLeave={()=>setIsDragging(false)} onDrop={(e)=>{e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files)}}
-                className={`h-2/3 w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${isDragging ? 'border-orange-500 bg-[#241e1a]' : 'border-gray-700 bg-[#181818]'}`}>
-                <span className="text-3xl mb-4">⬆️</span>
-                <h2 className="text-xl text-white font-semibold mb-2">Kéo thả các file Media hoặc Text vào đây</h2>
-                <p className="text-gray-500 text-sm mb-6">Hỗ trợ .mp4, .mp3, .wav, .srt, .txt... FFmpeg sẽ TỰ ĐỘNG NÉN</p>
-                <button onClick={triggerFileInput} className="bg-white text-black font-bold py-2 px-6 rounded-lg hover:bg-gray-200 transition-colors">Chọn file từ máy tính</button>
+                className={`w-full max-w-3xl py-20 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${isDragging ? 'border-orange-500 bg-[#241e1a]' : 'border-gray-700 bg-[#181818]'}`}>
+                <span className="text-4xl mb-4">⬆️</span>
+                <h2 className="text-2xl text-white font-bold mb-2">Kéo thả các file Media hoặc Text vào đây</h2>
+                <p className="text-gray-500 text-sm mb-8">Hỗ trợ định dạng: .mp4, .mp3, .wav, .m4a, .srt, .vtt, .txt</p>
+                <button onClick={triggerFileInput} className="bg-white text-black font-bold py-3 px-8 rounded-lg hover:bg-gray-200 transition-colors shadow-lg">Chọn file từ máy tính</button>
               </div>
-              <div className="w-full max-w-md">
-                <textarea placeholder="Hoặc dán link YouTube tại đây..." disabled={isTranslating} className="w-full bg-[#242424] border border-gray-700 rounded-lg p-3 text-sm focus:outline-none focus:border-orange-500 h-20 resize-none transition-colors" value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} />
-                <button onClick={handleAddYoutubeLink} disabled={isTranslating} className="w-full mt-2 bg-[#2a2a2a] py-2 rounded font-bold text-gray-400 hover:text-white border border-gray-700 transition-colors">
-                   {isTranslating ? '⏳ ĐANG KẾT NỐI BACKEND...' : 'THÊM LINK YOUTUBE'}
-                </button>
+
+              {/* KHU VỰC GIỚI THIỆU (FOOTER SEO) */}
+              <div className="w-full max-w-4xl mt-10 pb-12 border-t border-gray-800 pt-12">
+                <div className="text-center mb-10">
+                  <h3 className="text-xl font-bold text-white mb-3 tracking-wide">Về Subtitle Translator AI</h3>
+                  <p className="text-sm text-gray-500 max-w-2xl mx-auto leading-relaxed">
+                    Công cụ đột phá kết hợp sức mạnh của Trí tuệ nhân tạo và công nghệ xử lý đa phương tiện hiện đại, giúp bạn dễ dàng phá vỡ rào cản ngôn ngữ chỉ với vài cú click chuột.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-[#181818] p-6 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
+                    <div className="text-2xl mb-4">🧠</div>
+                    <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wider">Sức mạnh AI</h4>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Không dừng lại ở việc dịch từng từ một cách rập khuôn, hệ thống sử dụng các mô hình ngôn ngữ thế hệ mới nhất. AI có khả năng "nghe hiểu" ngữ cảnh, giữ nguyên văn phong tự nhiên.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#181818] p-6 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
+                    <div className="text-2xl mb-4">⚡</div>
+                    <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wider">FFmpeg WebAssembly</h4>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Trải nghiệm tốc độ xử lý đỉnh cao nhờ thư viện FFmpeg. Mọi file Video/Audio của bạn đều được bóc tách âm thanh trực tiếp trên thiết bị, đảm bảo quyền riêng tư tuyệt đối.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#181818] p-6 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
+                    <div className="text-2xl mb-4">🌍</div>
+                    <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wider">Kết nối toàn cầu</h4>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Phụ đề là chìa khóa để nội dung của bạn tiếp cận khán giả quốc tế, đồng thời hỗ trợ người khiếm thính. Tiết kiệm hàng giờ gõ phụ đề thủ công để tập trung vào việc sáng tạo.
+                    </p>
+                  </div>
+                </div>
+                
+                {/* BUTTON CHÍNH SÁCH BẢO MẬT */}
+                <div className="text-center mt-10 flex flex-col items-center space-y-3">
+                  <span className="text-[10px] text-gray-600 uppercase tracking-widest">
+                    © {new Date().getFullYear()} Subtitle Translator AI. Được thiết kế để tối ưu hiệu suất.
+                  </span>
+                  <button 
+                    onClick={() => setShowPrivacyPolicy(true)} 
+                    className="flex items-center gap-2 text-xs font-bold text-orange-400 hover:text-white border border-orange-500/30 hover:border-orange-500 bg-orange-500/10 hover:bg-orange-500/20 px-5 py-2.5 rounded-full transition-all shadow-md"
+                  >
+                    🛡️ Chính sách bảo mật (Privacy Policy)
+                  </button>
+                </div>
               </div>
+
             </div>
           ) : (
             <>
@@ -520,7 +516,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
                       <span>GỐC (ORIGINAL)</span>
                       <span className="text-gray-500 truncate max-w-[200px]">{activeFile.name}</span>
                     </div>
-                    <div className="p-4 font-mono text-sm space-y-6 overflow-y-auto relative">
+                    <div className="p-4 font-mono text-sm space-y-6 overflow-y-auto relative custom-scrollbar">
                       {activeFile.isMedia && currentSubtitles.length === 0 ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 p-8 text-center space-y-4">
                           <span className="text-4xl">🎞️</span>
@@ -541,7 +537,7 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
                     <div className="bg-[#242424] p-3 text-xs font-bold text-orange-500 uppercase">
                       KẾT QUẢ ({targetLanguage} - {selectedModel.includes('flash') ? 'FLASH 3' : 'PRO 3.1'})
                     </div>
-                    <div className="p-4 font-mono text-sm space-y-6 overflow-y-auto relative">
+                    <div className="p-4 font-mono text-sm space-y-6 overflow-y-auto relative custom-scrollbar">
                       {activeFile.isMedia && currentSubtitles.length === 0 ? (
                         <div className="absolute inset-0 flex items-center justify-center text-gray-600">
                           Kết quả dịch sẽ hiện tại đây...
@@ -569,35 +565,35 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
         </div>
       </div>
 
-      {/* 3. RIGHT CONFIG PANEL */}
-      <div className="w-80 border-l border-gray-800 bg-[#1a1a1a] p-6 flex flex-col overflow-y-auto">
-        <h3 className="text-sm font-bold text-white mb-6 uppercase tracking-widest">⚙️ Cấu hình dịch</h3>
+      {/* 3. RIGHT CONFIG PANEL (Đã tối ưu siêu gọn gàng) */}
+      <div className="w-72 md:w-80 border-l border-gray-800 bg-[#1a1a1a] p-4 flex flex-col overflow-y-auto custom-scrollbar">
+        <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-widest">⚙️ Cấu hình dịch</h3>
 
-        {/* MỚI: Ô NHẬP API KEY */}
-        <div className="mb-6 p-4 rounded-lg bg-orange-500/10 border border-orange-500/30">
-          <label className="text-[10px] text-orange-500 mb-2 block font-bold tracking-wider">API KEY CỦA BẠN</label>
+        {/* Ô NHẬP API KEY */}
+        <div className="mb-3 p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/30">
+          <label className="text-[9px] text-orange-500 mb-1.5 block font-bold tracking-wider">API KEY CỦA BẠN</label>
           <input 
             type="password" 
             placeholder="Nhập Gemini API Key..." 
             value={userApiKey}
             onChange={(e) => setUserApiKey(e.target.value)}
-            className="w-full bg-[#121212] border border-orange-500/50 rounded p-2.5 text-sm focus:outline-none focus:border-orange-500 text-white placeholder-gray-600 transition-colors"
+            className="w-full bg-[#121212] border border-orange-500/50 rounded p-1.5 text-xs focus:outline-none focus:border-orange-500 text-white placeholder-gray-600 transition-colors"
           />
-          <div className="mt-2 text-right">
+          <div className="mt-1.5 text-right">
             <a 
               href="https://aistudio.google.com/app/apikey" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-[11px] text-orange-400 hover:text-orange-300 hover:underline inline-flex items-center"
+              className="text-[10px] text-orange-400 hover:text-orange-300 hover:underline inline-flex items-center"
             >
               Nhấn để lấy API Key ↗
             </a>
           </div>
         </div>
         
-        <div className="mb-6">
-          <label className="text-[10px] text-gray-500 mb-2 block font-bold tracking-wider">NGÔN NGỮ ĐÍCH</label>
-          <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} className="w-full bg-[#242424] border border-gray-700 rounded p-2.5 text-sm focus:outline-none focus:border-orange-500 text-white">
+        <div className="mb-3">
+          <label className="text-[9px] text-gray-500 mb-1.5 block font-bold tracking-wider">NGÔN NGỮ ĐÍCH</label>
+          <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} className="w-full bg-[#242424] border border-gray-700 rounded p-1.5 text-xs focus:outline-none focus:border-orange-500 text-white">
             <option value="Tiếng Việt">Tiếng Việt</option>
             <option value="English">English</option>
             <option value="Tiếng Pháp">Tiếng Pháp</option>
@@ -605,23 +601,23 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
           </select>
         </div>
 
-        <div className="mb-6">
-          <label className="text-[10px] text-gray-500 mb-2 block font-bold tracking-wider">STYLE / TONE</label>
-          <div className="space-y-2">
+        <div className="mb-3">
+          <label className="text-[9px] text-gray-500 mb-1.5 block font-bold tracking-wider">STYLE / TONE</label>
+          <div className="space-y-1.5">
             {['Tự nhiên', 'Hàn lâm', 'Văn nói'].map((t) => (
-              <button key={t} onClick={() => setTone(t)} className={`w-full text-left p-2.5 rounded border text-sm transition-all ${tone === t ? 'border-orange-500 bg-[#2a241e] text-orange-500' : 'border-gray-800 text-gray-400 hover:bg-[#242424] hover:text-white hover:border-gray-600'}`}>{t}</button>
+              <button key={t} onClick={() => setTone(t)} className={`w-full text-left p-1.5 rounded border text-xs transition-all ${tone === t ? 'border-orange-500 bg-[#2a241e] text-orange-500' : 'border-gray-800 text-gray-400 hover:bg-[#242424] hover:text-white hover:border-gray-600'}`}>{t}</button>
             ))}
           </div>
         </div>
 
-        <div className="mb-8 flex-1">
-          <label className="text-[10px] text-gray-500 mb-2 block font-bold tracking-wider">MÔ HÌNH AI</label>
-          <div className="space-y-2">
-            <button onClick={() => setSelectedModel('gemini-3-flash-preview')} className={`w-full flex justify-between items-center p-3 rounded border text-xs transition-all ${selectedModel === 'gemini-3-flash-preview' ? 'border-orange-500 bg-[#2a241e] text-orange-500' : 'border-gray-800 text-gray-500 hover:border-gray-600'}`}>
+        <div>
+          <label className="text-[9px] text-gray-500 mb-1.5 block font-bold tracking-wider">MÔ HÌNH AI</label>
+          <div className="space-y-1.5">
+            <button onClick={() => setSelectedModel('gemini-3-flash-preview')} className={`w-full flex justify-between items-center p-2 rounded border text-xs transition-all ${selectedModel === 'gemini-3-flash-preview' ? 'border-orange-500 bg-[#2a241e] text-orange-500' : 'border-gray-800 text-gray-500 hover:border-gray-600'}`}>
               Gemini 3 Flash (Nhanh)
               {selectedModel === 'gemini-3-flash-preview' && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>}
             </button>
-            <button onClick={() => setSelectedModel('gemini-3.1-pro-preview')} className={`w-full flex justify-between items-center p-3 rounded border text-xs transition-all ${selectedModel === 'gemini-3.1-pro-preview' ? 'border-orange-500 bg-[#2a241e] text-orange-500' : 'border-gray-800 text-gray-500 hover:border-gray-600'}`}>
+            <button onClick={() => setSelectedModel('gemini-3.1-pro-preview')} className={`w-full flex justify-between items-center p-2 rounded border text-xs transition-all ${selectedModel === 'gemini-3.1-pro-preview' ? 'border-orange-500 bg-[#2a241e] text-orange-500' : 'border-gray-800 text-gray-500 hover:border-gray-600'}`}>
               Gemini 3.1 Pro (Chính xác)
               {selectedModel === 'gemini-3.1-pro-preview' && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>}
             </button>
@@ -629,6 +625,64 @@ const response = await fetch(`${backendUrl}/download?url=${encodeURIComponent(li
         </div>
 
       </div>
+
+      {/* 4. CỬA SỔ POP-UP CHÍNH SÁCH BẢO MẬT (MODAL) */}
+      {showPrivacyPolicy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm transition-opacity">
+          <div className="bg-[#1a1a1a] border border-gray-700 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+            
+            <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-[#242424] rounded-t-xl">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>🛡️</span> Chính sách Bảo mật & Điều khoản
+              </h2>
+              <button 
+                onClick={() => setShowPrivacyPolicy(false)} 
+                className="text-gray-400 hover:text-red-500 text-2xl leading-none transition-colors"
+              >&times;</button>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar text-sm text-gray-300 space-y-6 leading-relaxed">
+              <section>
+                <h3 className="text-orange-400 font-bold mb-2 uppercase text-xs tracking-widest">1. Thu thập & Lưu trữ API Key</h3>
+                <p>
+                  Chúng tôi đặt quyền riêng tư của bạn lên hàng đầu. <strong>Subtitle Translator AI tuyệt đối KHÔNG lưu trữ, không ghi log và không gửi API Key của bạn đến bất kỳ máy chủ nào của chúng tôi.</strong> 
+                  API Key mà bạn cung cấp chỉ được lưu tạm thời trên trình duyệt của chính bạn (Client-side) và được sử dụng để giao tiếp trực tiếp với máy chủ Google Gemini.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="text-orange-400 font-bold mb-2 uppercase text-xs tracking-widest">2. Xử lý File Media</h3>
+                <p>
+                  Toàn bộ quá trình bóc tách và nén âm thanh từ video đều được thực hiện <strong>100% cục bộ ngay trên thiết bị của bạn</strong> thông qua công nghệ FFmpeg WebAssembly. File gốc của bạn không bao giờ rời khỏi máy tính. 
+                </p>
+              </section>
+
+              <section>
+                <h3 className="text-orange-400 font-bold mb-2 uppercase text-xs tracking-widest">3. Sử dụng Dữ liệu & Cookie</h3>
+                <p>
+                  Trang web này có thể sử dụng các cookie tiêu chuẩn của bên thứ ba để phân tích lưu lượng ẩn danh hoặc phân phối quảng cáo phù hợp. Chúng tôi không bán hay chia sẻ dữ liệu cá nhân nào của bạn.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="text-orange-400 font-bold mb-2 uppercase text-xs tracking-widest">4. Từ chối trách nhiệm</h3>
+                <p>
+                  Chất lượng dịch thuật phụ thuộc hoàn toàn vào AI của Google Gemini. Chúng tôi không chịu trách nhiệm về nội dung bạn dịch hoặc chia sẻ.
+                </p>
+              </section>
+            </div>
+
+            <div className="p-4 border-t border-gray-800 flex justify-end bg-[#242424] rounded-b-xl">
+              <button 
+                onClick={() => setShowPrivacyPolicy(false)} 
+                className="bg-orange-500 text-white px-8 py-2 rounded-lg hover:bg-orange-600 font-bold text-sm transition-colors shadow-lg"
+              >
+                ĐÃ HIỂU VÀ ĐÓNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
