@@ -82,7 +82,7 @@ const App = () => {
     });
   };
 
-  // --- HÀM XỬ LÝ FILE CHUNG ---
+  // --- HÀM XỬ LÝ FILE ---
   const processFiles = async (fileList) => {
     if (!fileList || fileList.length === 0) return;
     const validExtensions = ['.srt', '.vtt', '.txt', '.mp3', '.mp4', '.wav', '.m4a'];
@@ -149,7 +149,7 @@ const App = () => {
     if (currentData.isMedia && currentData.subtitles.length === 0) {
       if (!isFfmpegLoaded) { throw new Error("Cỗ máy FFmpeg chưa sẵn sàng. Vui lòng thử lại!"); }
 
-      setProcessingStatus(`⏳ ĐANG TRÍCH XUẤT & NÉN...`);
+      setProcessingStatus(`⏳ ĐANG TRÍCH XUẤT & NÉN ÂM THANH...`);
       const ffmpeg = ffmpegRef.current;
       const ext = currentData.name.slice((Math.max(0, currentData.name.lastIndexOf(".")) || Infinity)).toLowerCase() || '.mp4';
       
@@ -170,7 +170,7 @@ const App = () => {
           reader.readAsDataURL(mp3Blob);
         });
 
-        setProcessingStatus(`⏳ ĐANG NGHE & TẠO PHỤ ĐỀ...`);
+        setProcessingStatus(`⏳ ĐANG NGHE & TẠO PHỤ ĐỀ GỐC...`);
         const mediaPart = { inlineData: { data: base64Audio, mimeType: "audio/mp3" } };
         const transcribePrompt = `Hãy nghe đoạn âm thanh/video này và tạo một file phụ đề ngôn ngữ gốc có độ chính xác cao nhất dưới định dạng SRT. KHÔNG bình luận, CHỈ trả về đoạn code SRT chuẩn.`;
         
@@ -186,7 +186,7 @@ const App = () => {
     }
 
     if (currentData.subtitles.length > 0) {
-      setProcessingStatus(`⏳ ĐANG DỊCH...`);
+      setProcessingStatus(`⏳ ĐANG DỊCH SANG ${targetLanguage.toUpperCase()}...`);
       const dataToTranslate = currentData.subtitles.map(sub => ({ id: sub.id, text: sub.text }));
       const translatePrompt = `
         Bạn là chuyên gia dịch thuật phụ đề. Hãy dịch các câu sau sang ${targetLanguage}.
@@ -260,7 +260,7 @@ const App = () => {
       if (isAlreadyTranslated) continue;
       
       setActiveProcessingId(currentProcessingFile.id);
-      setProcessingStatus('⏳ ĐANG CHUẨN BỊ...');
+      setProcessingStatus('⏳ ĐANG CHUẨN BỊ XỬ LÝ FILE TIẾP THEO...');
       await new Promise(r => setTimeout(r, 2000));
 
       try {
@@ -442,60 +442,59 @@ const App = () => {
 
         <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
           {!hasUploaded ? (
-            <div className="flex flex-col items-center justify-start pt-10 space-y-12 max-w-5xl mx-auto min-h-full">
+            <div className="flex flex-col items-center justify-start pt-6 space-y-6 max-w-5xl mx-auto min-h-full">
               
               {/* KHU VỰC KÉO THẢ FILE */}
               <div onDragOver={(e)=>{e.preventDefault(); setIsDragging(true)}} onDragLeave={()=>setIsDragging(false)} onDrop={(e)=>{e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files)}}
-                className={`w-full max-w-3xl py-20 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${isDragging ? 'border-orange-500 bg-[#241e1a]' : 'border-gray-700 bg-[#181818]'}`}>
+                className={`w-full max-w-3xl py-12 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${isDragging ? 'border-orange-500 bg-[#241e1a]' : 'border-gray-700 bg-[#181818]'}`}>
                 <span className="text-4xl mb-4">⬆️</span>
                 <h2 className="text-2xl text-white font-bold mb-2">Kéo thả các file Media hoặc Text vào đây</h2>
-                <p className="text-gray-500 text-sm mb-8">Hỗ trợ định dạng: .mp4, .mp3, .wav, .m4a, .srt, .vtt, .txt</p>
+                <p className="text-gray-500 text-sm mb-6">Hỗ trợ định dạng: .mp4, .mp3, .wav, .m4a, .srt, .vtt, .txt</p>
                 <button onClick={triggerFileInput} className="bg-white text-black font-bold py-3 px-8 rounded-lg hover:bg-gray-200 transition-colors shadow-lg">Chọn file từ máy tính</button>
               </div>
 
               {/* KHU VỰC GIỚI THIỆU (FOOTER SEO) */}
-              <div className="w-full max-w-4xl mt-10 pb-12 border-t border-gray-800 pt-12">
-                <div className="text-center mb-10">
-                  <h3 className="text-xl font-bold text-white mb-3 tracking-wide">Về Subtitle Translator AI</h3>
+              <div className="w-full max-w-4xl mt-2 pb-6 border-t border-gray-800 pt-6">
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-white mb-2 tracking-wide">Về Subtitle Translator AI</h3>
                   <p className="text-sm text-gray-500 max-w-2xl mx-auto leading-relaxed">
                     Công cụ đột phá kết hợp sức mạnh của Trí tuệ nhân tạo và công nghệ xử lý đa phương tiện hiện đại, giúp bạn dễ dàng phá vỡ rào cản ngôn ngữ chỉ với vài cú click chuột.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-[#181818] p-6 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
-                    <div className="text-2xl mb-4">🧠</div>
-                    <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wider">Sức mạnh AI</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="bg-[#181818] p-5 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
+                    <div className="text-xl mb-3">🧠</div>
+                    <h4 className="text-white font-bold mb-2 text-sm uppercase tracking-wider">Sức mạnh AI</h4>
                     <p className="text-xs text-gray-400 leading-relaxed">
                       Không dừng lại ở việc dịch từng từ một cách rập khuôn, hệ thống sử dụng các mô hình ngôn ngữ thế hệ mới nhất. AI có khả năng "nghe hiểu" ngữ cảnh, giữ nguyên văn phong tự nhiên.
                     </p>
                   </div>
 
-                  <div className="bg-[#181818] p-6 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
-                    <div className="text-2xl mb-4">⚡</div>
-                    <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wider">FFmpeg WebAssembly</h4>
+                  <div className="bg-[#181818] p-5 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
+                    <div className="text-xl mb-3">⚡</div>
+                    <h4 className="text-white font-bold mb-2 text-sm uppercase tracking-wider">FFmpeg WebAssembly</h4>
                     <p className="text-xs text-gray-400 leading-relaxed">
                       Trải nghiệm tốc độ xử lý đỉnh cao nhờ thư viện FFmpeg. Mọi file Video/Audio của bạn đều được bóc tách âm thanh trực tiếp trên thiết bị, đảm bảo quyền riêng tư tuyệt đối.
                     </p>
                   </div>
 
-                  <div className="bg-[#181818] p-6 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
-                    <div className="text-2xl mb-4">🌍</div>
-                    <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wider">Kết nối toàn cầu</h4>
+                  <div className="bg-[#181818] p-5 rounded-xl border border-gray-800 hover:border-orange-500/50 transition-colors">
+                    <div className="text-xl mb-3">🌍</div>
+                    <h4 className="text-white font-bold mb-2 text-sm uppercase tracking-wider">Kết nối toàn cầu</h4>
                     <p className="text-xs text-gray-400 leading-relaxed">
                       Phụ đề là chìa khóa để nội dung của bạn tiếp cận khán giả quốc tế, đồng thời hỗ trợ người khiếm thính. Tiết kiệm hàng giờ gõ phụ đề thủ công để tập trung vào việc sáng tạo.
                     </p>
                   </div>
                 </div>
                 
-                {/* BUTTON CHÍNH SÁCH BẢO MẬT */}
-                <div className="text-center mt-10 flex flex-col items-center space-y-3">
+                <div className="text-center mt-6 flex flex-col items-center space-y-3">
                   <span className="text-[10px] text-gray-600 uppercase tracking-widest">
                     © {new Date().getFullYear()} Subtitle Translator AI. Được thiết kế để tối ưu hiệu suất.
                   </span>
                   <button 
                     onClick={() => setShowPrivacyPolicy(true)} 
-                    className="flex items-center gap-2 text-xs font-bold text-orange-400 hover:text-white border border-orange-500/30 hover:border-orange-500 bg-orange-500/10 hover:bg-orange-500/20 px-5 py-2.5 rounded-full transition-all shadow-md"
+                    className="flex items-center gap-2 text-xs font-bold text-orange-400 hover:text-white border border-orange-500/30 hover:border-orange-500 bg-orange-500/10 hover:bg-orange-500/20 px-5 py-2 rounded-full transition-all shadow-md"
                   >
                     🛡️ Chính sách bảo mật (Privacy Policy)
                   </button>
@@ -565,11 +564,10 @@ const App = () => {
         </div>
       </div>
 
-      {/* 3. RIGHT CONFIG PANEL (Đã tối ưu siêu gọn gàng) */}
+      {/* 3. RIGHT CONFIG PANEL */}
       <div className="w-72 md:w-80 border-l border-gray-800 bg-[#1a1a1a] p-4 flex flex-col overflow-y-auto custom-scrollbar">
         <h3 className="text-xs font-bold text-white mb-3 uppercase tracking-widest">⚙️ Cấu hình dịch</h3>
 
-        {/* Ô NHẬP API KEY */}
         <div className="mb-3 p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/30">
           <label className="text-[9px] text-orange-500 mb-1.5 block font-bold tracking-wider">API KEY CỦA BẠN</label>
           <input 
